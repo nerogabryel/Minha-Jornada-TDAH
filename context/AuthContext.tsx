@@ -2,6 +2,21 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types';
 import { supabase, isSupabaseConfigured } from '../services/supabaseClient';
 import { MOCK_USER } from '../constants';
+import { showToast } from '../components/Toast';
+
+// Basic HTML sanitizer for XSS protection
+const sanitizeHTML = (str: string) => {
+  if (!str) return str;
+  return str.replace(/[&<>'"]/g,
+    tag => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      "'": '&#39;',
+      '"': '&quot;'
+    }[tag] || tag)
+  );
+};
 
 interface AuthContextType {
   user: User | null;
@@ -145,16 +160,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { error: 'Recuperação de senha não disponível no modo offline.' };
   };
 
-  const updateUser = (updates: Partial<User>) => {
+  const updateUser = async (updates: Partial<User>) => {
     if (!user) return;
-    const updatedUser = { ...user, ...updates };
+
+    // Sanitize user inputs to prevent XSS
+    const safeUpdates: Partial<User> = {};
+    if (updates.name) safeUpdates.name = sanitizeHTML(updates.name);
+    if (updates.avatarUrl) safeUpdates.avatarUrl = updates.avatarUrl; // Assuming URL safe
+    if (updates.bigFiveTrait) safeUpdates.bigFiveTrait = updates.bigFiveTrait; // System handled
+    if (updates.subscriptionTier) safeUpdates.subscriptionTier = updates.subscriptionTier; // System handled
+
+    const updatedUser = { ...user, ...safeUpdates };
     setUser(updatedUser);
     localStorage.setItem('tdah_app_user', JSON.stringify(updatedUser));
 
     if (isOnlineMode && supabase) {
-      supabase.auth.updateUser({
-        data: { name: updatedUser.name, avatar_url: updatedUser.avatarUrl },
-      });
+      try {
+        const { error: authError } = await supabase.auth.updateUser({
+          data: { name: updatedUser.name, avatar_url: updatedUser.avatarUrl },
+        });
+
+        if (authError) throw authError;
+
+        if (safeUpdates.bigFiveTrait || safeUpdates.subscriptionTier) {
+          const { error: profileError } = await supabase.from('user_profiles').update({
+            big_five_trait: safeUpdates.bigFiveTrait,
+            subscription_tier: safeUpdates.subscriptionTier
+          }).eq('id', user.id);
+          if (profileError) throw profileError;
+        }
+      } catch (e) {
+        console.error('Failed to update user globally', e);
+        showToast('Suas mudanças no perfil parecem não ter sido gravadas. Tente mais tarde.', 'error');
+      }
     }
   };
 

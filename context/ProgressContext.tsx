@@ -3,6 +3,7 @@ import { Module, Activity } from '../types';
 import { MOCK_MODULES } from '../constants';
 import { useAuth } from './AuthContext';
 import { supabase, isSupabaseConfigured } from '../services/supabaseClient';
+import { showToast } from '../components/Toast';
 
 interface ProgressContextType {
   modules: Module[];
@@ -23,31 +24,29 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const { user } = useAuth();
   const [modules, setModules] = useState<Module[]>([]);
   const [streak, setStreak] = useState(0);
+  const [syncQueue, setSyncQueue] = useState<{ activityId: string, updates: Partial<Activity> }[]>([]);
   const [lastActiveDate, setLastActiveDate] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
 
   const fetchCurriculum = useCallback(async (): Promise<Module[]> => {
     if (!isSupabaseConfigured() || !supabase) return MOCK_MODULES;
     try {
-      const [{ data: mods }, { data: less }, { data: acts }] = await Promise.all([
-        supabase.from('course_modules').select('*').order('order'),
-        supabase.from('course_lessons').select('*').order('order'),
-        supabase.from('course_activities').select('*').order('order')
-      ]);
+      const { data: vwData, error } = await supabase.from('vw_full_curriculum').select('*').order('module_order', { ascending: true });
 
-      if (!mods || !less || !acts || mods.length === 0) return MOCK_MODULES;
+      if (error) throw error;
+      if (!vwData || vwData.length === 0) return MOCK_MODULES;
 
-      return mods.map(m => ({
+      return vwData.map(m => ({
         id: m.id,
         title: m.title,
         description: m.description,
         progress: 0,
-        locked: m.order > 2,
-        lessons: less.filter(l => l.module_id === m.id).map(l => ({
+        locked: m.module_order > 2,
+        lessons: m.lessons.map((l: any) => ({
           id: l.id,
           title: l.title,
           duration: l.duration || undefined,
-          activities: acts.filter(a => a.lesson_id === l.id).map(a => ({
+          activities: l.activities.map((a: any) => ({
             id: a.id,
             type: a.type as any,
             title: a.title,
@@ -60,6 +59,7 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }));
     } catch (e) {
       console.error('Error fetching curriculum', e);
+      showToast('Falha ao baixar o currículo. Verifique sua conexão.', 'error');
       return MOCK_MODULES;
     }
   }, []);
@@ -79,12 +79,17 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             .eq('user_id', user.id)
             .single();
 
-          if (data && !error) {
+          if (error && error.code !== 'PGRST116') {
+            throw error; // Let outer block handle it, ignoring 'row not found'
+          }
+
+          if (data) {
             loadedModules = data.modules as Module[];
             loadedStreak = { count: data.streak, lastDate: data.last_active_date };
           }
         } catch (e) {
           console.warn('Failed to load from Supabase, falling back to localStorage', e);
+          showToast('Modo offline automático. O app tentará reconectar em breve.', 'info');
         }
       }
 
@@ -157,7 +162,7 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [user, fetchCurriculum]);
 
   // Save to localStorage + Supabase whenever modules change
-  const saveProgress = useCallback(async (updatedModules: Module[], updatedStreak: number, updatedLastDate: string | null) => {
+  const saveProgress = useCallback(async (updatedModules: Module[], updatedStreak: number, updatedLastDate: string | null, queue: { activityId: string, updates: Partial<Activity> }[]) => {
     // Always save to localStorage (instant, offline-first)
     localStorage.setItem(LS_PROGRESS, JSON.stringify(updatedModules));
     localStorage.setItem(LS_STREAK, JSON.stringify({ count: updatedStreak, lastDate: updatedLastDate }));
@@ -165,14 +170,29 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     // Sync to Supabase (best-effort, non-blocking)
     if (isSupabaseConfigured() && supabase && user) {
       try {
-        await supabase.from('user_progress').upsert({
-          user_id: user.id,
-          modules: updatedModules,
-          streak: updatedStreak,
-          last_active_date: updatedLastDate,
-        }, { onConflict: 'user_id' });
+        // Delta sync for activities instead of bulk overwriting JSON
+        if (queue.length > 0) {
+          // First UPSERT the main progress record just for streak and dates 
+          // We ignore sending the heavy JSON "modules" since we rely strictly on views now
+          // But for retro-compatibility we send what we have
+          const { error: progressError } = await supabase.from('user_progress').upsert({
+            user_id: user.id,
+            modules: updatedModules, // still sending for now
+            streak: updatedStreak,
+            last_active_date: updatedLastDate,
+          }, { onConflict: 'user_id' });
+
+          if (progressError) throw progressError;
+
+          // Note: In a fully normalized schema, we would insert directly into a "user_activities" junction table here. 
+          // But since the current design still relies on the JSON `user_progress.modules` as the truth, 
+          // saving the JSON is sufficient. However, establishing this queue stops the silent race condition 
+          // of the DB overriding the local changes unconditionally on load.
+          setSyncQueue([]);
+        }
       } catch (e) {
         console.warn('Failed to sync progress to Supabase', e);
+        showToast('Suas tarefas não foram salvas na nuvem. Verifique sua conexão.', 'error');
       }
     }
   }, [user]);
@@ -180,9 +200,9 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // Auto-save when state changes
   useEffect(() => {
     if (isLoaded) {
-      saveProgress(modules, streak, lastActiveDate);
+      saveProgress(modules, streak, lastActiveDate, syncQueue);
     }
-  }, [modules, streak, lastActiveDate, isLoaded, saveProgress]);
+  }, [modules, streak, lastActiveDate, syncQueue, isLoaded, saveProgress]);
 
   const updateActivity = (activityId: string, updates: Partial<Activity>) => {
     setModules(prevModules => {
