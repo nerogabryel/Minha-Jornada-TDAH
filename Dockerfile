@@ -6,7 +6,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 
 # Instalar dependências de forma limpa
-RUN npm ci
+RUN npm install
 
 # Copiar o restante do código da aplicação
 COPY . .
