@@ -1,0 +1,119 @@
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap');
+@import "tailwindcss";
+
+:root {
+  --font-sans: 'Nunito', sans-serif;
+  
+  /* Duolingo Color Palette */
+  --color-snow: 255, 255, 255;
+  --color-polar: 247, 247, 247;
+  --color-swan: 229, 229, 229;
+  --color-hare: 175, 175, 175;
+  --color-wolf: 119, 119, 119;
+  --color-eel: 75, 75, 75;
+  --color-macaw: 28, 176, 246;
+  --color-owl: 88, 204, 2;
+  --color-cardinal: 255, 75, 75;
+  --color-bee: 255, 200, 0;
+  --color-fox: 255, 150, 0;
+  --color-humpback: 43, 112, 201;
+  --color-whale: 24, 153, 214;
+  --color-feather: 28, 176, 246;
+  
+  /* Semantic Mappings */
+  --bg-primary: rgb(var(--color-polar));
+  --bg-card: rgb(var(--color-snow));
+  --border-default: rgb(var(--color-swan));
+  --text-primary: rgb(var(--color-eel));
+  --text-secondary: rgb(var(--color-wolf));
+  --text-tertiary: rgb(var(--color-hare));
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgb(var(--color-polar));
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--color-swan));
+  border-radius: 5px;
+  border: 2px solid rgb(var(--color-polar));
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--color-hare));
+}
+
+/* Utility Classes for Duolingo Style */
+.btn-pushable {
+  border-bottom-width: 4px;
+  border-style: solid;
+  transition: all 0.1s;
+}
+
+.btn-pushable:active {
+  border-bottom-width: 0px;
+  transform: translateY(4px);
+  margin-bottom: 4px; /* To prevent layout shift if needed, or handle in parent */
+}
+
+.card-duo {
+  background-color: rgb(var(--color-snow));
+  border: 2px solid rgb(var(--color-swan));
+  border-radius: 16px;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes pop {
+  0% { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+
+@keyframes confetti {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-pop {
+  animation: pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.animate-confetti {
+  animation: confetti 1s ease-out forwards;
+}
+
+.text-balance {
+  text-wrap: balance;
+}
