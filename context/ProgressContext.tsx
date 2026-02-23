@@ -26,6 +26,44 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [lastActiveDate, setLastActiveDate] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
 
+  const fetchCurriculum = useCallback(async (): Promise<Module[]> => {
+    if (!isSupabaseConfigured() || !supabase) return MOCK_MODULES;
+    try {
+      const [{ data: mods }, { data: less }, { data: acts }] = await Promise.all([
+        supabase.from('course_modules').select('*').order('order'),
+        supabase.from('course_lessons').select('*').order('order'),
+        supabase.from('course_activities').select('*').order('order')
+      ]);
+
+      if (!mods || !less || !acts || mods.length === 0) return MOCK_MODULES;
+
+      return mods.map(m => ({
+        id: m.id,
+        title: m.title,
+        description: m.description,
+        progress: 0,
+        locked: m.order > 2,
+        lessons: less.filter(l => l.module_id === m.id).map(l => ({
+          id: l.id,
+          title: l.title,
+          duration: l.duration || undefined,
+          activities: acts.filter(a => a.lesson_id === l.id).map(a => ({
+            id: a.id,
+            type: a.type as any,
+            title: a.title,
+            instructions: a.instructions,
+            motivational_text: a.motivational_text || undefined,
+            isCompleted: false,
+            content: a.content || undefined
+          }))
+        }))
+      }));
+    } catch (e) {
+      console.error('Error fetching curriculum', e);
+      return MOCK_MODULES;
+    }
+  }, []);
+
   // Load data on mount or when user changes
   useEffect(() => {
     const loadData = async () => {
@@ -71,7 +109,32 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
       }
 
-      setModules(loadedModules || MOCK_MODULES);
+      let baseModules = await fetchCurriculum();
+      if (loadedModules) {
+        baseModules = baseModules.map(m => {
+          const lm = loadedModules!.find(x => x.id === m.id);
+          if (!lm) return m;
+          return {
+            ...m,
+            progress: lm.progress,
+            locked: lm.locked,
+            lessons: m.lessons.map(l => {
+              const ll = lm.lessons.find(x => x.id === l.id);
+              if (!ll) return l;
+              return {
+                ...l,
+                activities: l.activities.map(a => {
+                  const la = ll.activities.find(x => x.id === a.id);
+                  if (!la) return a;
+                  return { ...a, isCompleted: la.isCompleted };
+                })
+              }
+            })
+          }
+        });
+      }
+
+      setModules(baseModules);
       setStreak(loadedStreak.count || 0);
       setLastActiveDate(loadedStreak.lastDate || null);
 
@@ -91,7 +154,7 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
 
     loadData();
-  }, [user]);
+  }, [user, fetchCurriculum]);
 
   // Save to localStorage + Supabase whenever modules change
   const saveProgress = useCallback(async (updatedModules: Module[], updatedStreak: number, updatedLastDate: string | null) => {
@@ -186,7 +249,8 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const resetProgress = async () => {
-    setModules(MOCK_MODULES);
+    const baseModules = await fetchCurriculum();
+    setModules(baseModules);
     setStreak(0);
     setLastActiveDate(null);
     localStorage.removeItem(LS_PROGRESS);

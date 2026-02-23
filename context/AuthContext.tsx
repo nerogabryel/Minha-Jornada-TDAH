@@ -23,28 +23,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     if (isOnlineMode && supabase) {
+      const fetchProfileAndSetUser = async (user: any) => {
+        const { data } = await supabase.from('user_profiles').select('*').eq('id', user.id).single();
+        if (!data) {
+          await supabase.from('user_profiles').insert({ id: user.id });
+        }
+        setUser({
+          id: user.id,
+          name: user.user_metadata?.name || user.email?.split('@')[0] || 'Usuária',
+          email: user.email || '',
+          avatarUrl: user.user_metadata?.avatar_url,
+          subscriptionTier: data?.subscription_tier || 'free',
+          bigFiveTrait: data?.big_five_trait || undefined
+        });
+        setIsLoading(false);
+      };
+
       // Check existing session
       supabase.auth.getSession().then(({ data: { session } }) => {
         if (session?.user) {
-          setUser({
-            id: session.user.id,
-            name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Usuária',
-            email: session.user.email || '',
-            avatarUrl: session.user.user_metadata?.avatar_url,
-          });
+          fetchProfileAndSetUser(session.user);
+        } else {
+          setIsLoading(false);
         }
-        setIsLoading(false);
       });
 
       // Listen for auth changes
       const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
         if (session?.user) {
-          setUser({
-            id: session.user.id,
-            name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Usuária',
-            email: session.user.email || '',
-            avatarUrl: session.user.user_metadata?.avatar_url,
-          });
+          fetchProfileAndSetUser(session.user);
         } else {
           setUser(null);
         }

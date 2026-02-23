@@ -5,6 +5,8 @@ export interface User {
   name: string;
   email: string;
   avatarUrl?: string;
+  subscriptionTier?: string;
+  bigFiveTrait?: string;
 }
 
 export type NavItem = {
@@ -22,7 +24,7 @@ export interface Activity {
   instructions: string;
   motivational_text?: string;
   isCompleted: boolean;
-  content?: any; 
+  content?: any;
 }
 
 export interface Lesson {
