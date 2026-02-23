@@ -5,6 +5,7 @@ import { Button } from './Button';
 import { Modal } from './Modal';
 import { CelebrationConfetti } from './CelebrationConfetti';
 import { useAuth } from '../context/AuthContext';
+import { SecureVideoPlayer } from './SecureVideoPlayer';
 
 interface Phase {
     id: number;
@@ -481,11 +482,17 @@ export const JourneyMap: React.FC = () => {
                             <X className="w-8 h-8" />
                         </button>
 
-                        <div className="text-center">
-                            <PlayCircle className="w-20 h-20 text-white/20 mx-auto mb-4" />
-                            <p className="text-white/50 font-bold uppercase">Simulação de Vídeo Player</p>
-                            <Button onClick={handleVideoComplete} className="mt-8 bg-white text-black hover:bg-gray-200 border-gray-400">
-                                Concluir Aula
+                        <div className="text-center w-full h-full flex flex-col justify-center">
+                            {currentVideoUrl ? (
+                                <SecureVideoPlayer provider="vimeo" videoId={currentVideoUrl.split('/').pop() || ''} />
+                            ) : (
+                                <>
+                                    <PlayCircle className="w-20 h-20 text-white/20 mx-auto mb-4" />
+                                    <p className="text-white/50 font-bold uppercase">Simulação de Vídeo Player</p>
+                                </>
+                            )}
+                            <Button onClick={handleVideoComplete} className="mt-8 bg-white text-black hover:bg-gray-200 border-gray-400 mx-auto w-1/2">
+                                Marcar Aula como Concluída
                             </Button>
                         </div>
                     </div>

@@ -49,7 +49,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           email: user.email || '',
           avatarUrl: user.user_metadata?.avatar_url,
           subscriptionTier: data?.subscription_tier || 'free',
-          bigFiveTrait: data?.big_five_trait || undefined
+          bigFiveTrait: data?.big_five_trait || undefined,
+          isAdmin: data?.is_admin || false
         });
         setIsLoading(false);
       };

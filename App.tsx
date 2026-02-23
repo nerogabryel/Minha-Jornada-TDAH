@@ -14,8 +14,9 @@ import { JourneyMap } from './components/JourneyMap';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ToastContainer } from './components/Toast';
 import { Loader2 } from 'lucide-react';
-
 import { NotFound } from './components/NotFound';
+import { AdminPanel } from './components/AdminPanel';
+import { PrivacyTerms } from './components/PrivacyTerms';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isLoading } = useAuth();
@@ -58,6 +59,8 @@ const AppRoutes = () => {
         </PublicRoute>
       } />
 
+      <Route path="/privacy" element={<PrivacyTerms />} />
+
       <Route path="/" element={
         <ProtectedRoute>
           <Layout />
@@ -69,6 +72,7 @@ const AppRoutes = () => {
         <Route path="activity/:activityId" element={<ActivityView />} />
         <Route path="journal" element={<JournalView />} />
         <Route path="profile" element={<ProfileView />} />
+        <Route path="admin" element={<AdminPanel />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

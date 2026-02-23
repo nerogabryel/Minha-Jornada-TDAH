@@ -7,6 +7,7 @@ export interface User {
   avatarUrl?: string;
   subscriptionTier?: string;
   bigFiveTrait?: string;
+  isAdmin?: boolean;
 }
 
 export type NavItem = {

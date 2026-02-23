@@ -219,6 +219,12 @@ export const Login: React.FC = () => {
               ⚡ Modo Offline — dados salvos no navegador
             </p>
           )}
+          {/* Privacy Terms Links */}
+          <div className="mt-6 pt-4 border-t-2 border-[rgb(var(--color-swan))] text-center">
+            <a href="#/privacy" className="text-xs font-bold text-[rgb(var(--color-hare))] hover:text-[rgb(var(--color-wolf))] uppercase tracking-wide transition-colors">
+              Termos de Privacidade e LGPD
+            </a>
+          </div>
         </form>
       </div>
     </div>
